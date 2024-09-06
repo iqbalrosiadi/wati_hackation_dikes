@@ -219,7 +219,7 @@ func createTemplateOnRecommender(ctx context.Context, messageTemplate model.Temp
 	// Insert mock feedback (the SDK is broken, so we need to use the HTTP API)
 	recommenderUrl := fmt.Sprintf("http://%s", net.JoinHostPort(config.GetString("recommender.host"), config.GetString("recommender.port")))
 	feedbacks := []gorse.Feedback{
-		{FeedbackType: "star", UserId: messageTemplate.Id, ItemId: tempUserId, Timestamp: time.Now().Format("2006-01-02 15:04:05")},
+		{FeedbackType: "star", UserId: messageTemplate.Id, ItemId: tempUserId, Timestamp: time.Now().Format("2006-01-02")},
 	}
 	jsonByte, err = json.Marshal(feedbacks)
 	if err != nil {
