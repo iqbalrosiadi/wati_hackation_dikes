@@ -3,7 +3,6 @@ module github.com/iqbalrosiadi/wati_hackation_dikes
 go 1.23.0
 
 require (
-	github.com/ClareAI/wati-go-common v0.0.0-20240906093814-64364ef27442
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/rs/zerolog v1.33.0
@@ -13,6 +12,7 @@ require (
 )
 
 require (
+	github.com/ClareAI/wati-go-common v0.0.0-20240906110918-8aedadb2c67e // indirect
 	github.com/bytedance/sonic v1.12.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

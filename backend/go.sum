@@ -2,6 +2,8 @@ github.com/ClareAI/wati-go-common v0.0.0-20240906092106-dcb88f014976 h1:pLC3jC1h
 github.com/ClareAI/wati-go-common v0.0.0-20240906092106-dcb88f014976/go.mod h1:CP7Ub5JJoN6ZOvDvFkfKIvTLFlqy+GFKOvBxdw7Q7eE=
 github.com/ClareAI/wati-go-common v0.0.0-20240906093814-64364ef27442 h1:2E1TMMKIzoYJa1NQ8HFPT9w6b9W0Enhp36tRml0NBc8=
 github.com/ClareAI/wati-go-common v0.0.0-20240906093814-64364ef27442/go.mod h1:CP7Ub5JJoN6ZOvDvFkfKIvTLFlqy+GFKOvBxdw7Q7eE=
+github.com/ClareAI/wati-go-common v0.0.0-20240906110918-8aedadb2c67e h1:QZbV+6R+kSpo8T0sUlgHVKtXnHgtta9USZdjhQXA4/4=
+github.com/ClareAI/wati-go-common v0.0.0-20240906110918-8aedadb2c67e/go.mod h1:CP7Ub5JJoN6ZOvDvFkfKIvTLFlqy+GFKOvBxdw7Q7eE=
 github.com/bytedance/sonic v1.12.2 h1:oaMFuRTpMHYLpCntGca65YWt5ny+wAceDERTkT2L9lg=
 github.com/bytedance/sonic v1.12.2/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKzMzT9r/rk=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
