@@ -27,6 +27,12 @@ import (
 	pkgLogger "github.com/ClareAI/wati-go-common/pkg/logger"
 )
 
+type RecommendContact struct {
+	Phone  string `json:"phone"`
+	Name   string `json:"name"`
+	ItemId string `json:"itemId"`
+}
+
 const (
 	BROADCAST_COLLECTION_NAME = "Broadcast"
 	TEMPLATE_COLLECTION_NAME  = "Template"
@@ -162,7 +168,15 @@ func RecommendContacts(c *gin.Context) {
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 	}
-	c.JSON(200, rs)
+	recommendContacts := []RecommendContact{}
+	for i, elt := range rs {
+		recommendContacts = append(recommendContacts, RecommendContact{
+			Phone:  elt.Id,
+			Name:   fmt.Sprintf("Contact %d", i),
+			ItemId: elt.Id,
+		})
+	}
+	c.JSON(200, recommendContacts)
 }
 
 func createTemplateOnRecommender(ctx context.Context, messageTemplate model.Template) error {
