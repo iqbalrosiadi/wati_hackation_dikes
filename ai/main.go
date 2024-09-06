@@ -1,90 +1,59 @@
 package main
 
-// import (
-// 	"bufio"
-// 	"fmt"
-// 	"os"
+import (
+	"net"
 
-// 	"github.com/sjwhitworth/golearn/base"
-// 	"github.com/sjwhitworth/golearn/evaluation"
-// 	"github.com/sjwhitworth/golearn/knn"
-// )
+	"github.com/gin-gonic/gin"
+	"github.com/iqbalrosiadi/wati_hackation_dikes/ai/labeler"
+	"github.com/spf13/viper"
 
-// func main() {
-// 	// Initiate user input reader
-// 	reader := bufio.NewReader(os.Stdin)
+	pkgConfig "github.com/ClareAI/wati-go-common/pkg/config"
+)
 
-// 	for {
-// 		// Print the instruction to the reader in the console
-// 		fmt.Println("Pleasse select the following option:")
-// 		fmt.Println("A. Train the model")
-// 		fmt.Println("B. Load the model")
-// 		fmt.Println("C. Predict the model")
-// 		fmt.Println("D. Exit")
+var (
+	config *viper.Viper
+)
 
-// 		// Read the user's input
-// 		char, _, err := reader.ReadRune()
-// 		if err != nil {
-// 			fmt.Println(err)
-// 		}
+func init() {
+	config = pkgConfig.GetConfig()
+}
 
-// 		switch char {
-// 		case 'A':
-// 			filePath, err := reader.ReadString('\n')
-// 			if err != nil {
-// 				panic(err)
-// 			}
-// 			TrainModel(filePath)
-// 			break
-// 		case 'B':
-// 			fmt.Println("B Key Pressed")
-// 			break
-// 		case 'C':
-// 			fmt.Println("C Key Pressed")
-// 			break
-// 		case 'D':
-// 			os.Exit(0)
-// 		}
-// 	}
+func main() {
+	r := gin.Default()
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "DIKES AI Model Server",
+		})
+	})
 
-// 	// Load trained model
-// 	classifier, _ := LoadModel2("knn_model.bin")
+	// Template routes
+	r.POST("/api/v1/labeler/template", GenerateTemplateLabels)
 
-// 	// Load data need to predict
-// 	rawData, err := base.ParseCSVToInstances("datasets/iris_headers.csv", true)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	_, testData := base.InstancesTrainTestSplit(rawData, 0.50)
+	addr := net.JoinHostPort(config.GetString("server.http.host"), config.GetString("server.http.port"))
+	r.Run(addr)
+}
 
-// 	predictions, err := classifier.Predict(testData)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	fmt.Println(predictions)
+func GenerateTemplateLabels(c *gin.Context) {
+	type Template struct {
+		Id      string `json:"id"`
+		Content string `json:"content"`
+	}
 
-// 	confusionMat, err := evaluation.GetConfusionMatrix(testData, predictions)
-// 	if err != nil {
-// 		panic(fmt.Sprintf("Unable to get confusion matrix: %s", err.Error()))
-// 	}
-// 	fmt.Println(evaluation.GetSummary(confusionMat))
+	var payload Template
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
-// }
+	labelerHdl := labeler.NewTemplateLabeler()
+	labels, err := labelerHdl.CreateLabelForTemplate(c, payload.Content)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
-// func TrainModel(datasetPath string) {
-// 	trainData, err := base.ParseCSVToInstances("datasetPath", true)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	//Do a training-test split
-// 	classifier := knn.NewKnnClassifier("euclidean", "linear", 2)
-// 	classifier.Fit(trainData)
-// 	classifier.Save("knn_model.bin")
-// }
-
-// func LoadModel2(filename string) (*knn.KNNClassifier, error) {
-// 	classifier := &knn.KNNClassifier{}
-// 	classifier.Load("knn_model.bin")
-// 	return classifier, nil
-// }
+	c.JSON(200, gin.H{
+		"id":     payload.Id,
+		"labels": labels,
+	})
+}

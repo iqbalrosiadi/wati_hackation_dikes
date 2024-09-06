@@ -7,7 +7,7 @@ import (
 )
 
 type Template struct {
-	Id       string `json:"id" bson:"_id"`
+	Id       string `json:"id,omitempty" bson:"_id,omitempty"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Language string `json:"language"`
@@ -28,4 +28,9 @@ func (r *TemplateRepo) Create(ctx context.Context, template Template) (*mongo.In
 
 func (r *TemplateRepo) Find(ctx context.Context, filter interface{}) (*mongo.Cursor, error) {
 	return r.col.Find(ctx, filter)
+}
+
+func (r *TemplateRepo) FindOne(ctx context.Context, id string) *mongo.SingleResult {
+	filter := map[string]string{"_id": id}
+	return r.col.FindOne(ctx, filter)
 }

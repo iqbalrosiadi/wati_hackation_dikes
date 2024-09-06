@@ -1,0 +1,36 @@
+env: "dev"
+
+server:
+  http:
+    host: "0.0.0.0"
+    port: "8099"
+
+logger:
+  debug: false
+  pretty: false
+
+database:
+  mongo:
+    protocol: "mongodb"
+    host: "localhost"
+    port: "27017"
+    name: "dikes_hackathon"
+    user: "root"
+    password: "password"
+    write_concern: "majority"
+    read_preference: "secondary"
+
+recommender:
+  host: "127.0.0.1"
+  port: "8087"
+
+labeler:
+  host: "127.0.0.1"
+  port: "9001"
+
+cache:
+  host: ""
+  port: ""
+  user: ""
+  password: ""
+  db: 0

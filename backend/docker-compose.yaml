@@ -1,0 +1,28 @@
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_DATABASE: dikes_hackathon
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo_data:/data/db
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - GITHUB_TOKEN=$GITHUB_TOKEN
+    restart: unless-stopped
+    ports:
+      - 8099:8099
+    depends_on:
+      - mongo
+    volumes:
+    - ./config:/app/config
+
+volumes:
+  mongo_data:

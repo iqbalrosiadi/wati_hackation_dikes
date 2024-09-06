@@ -1,288 +1,238 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"math/rand/v2"
+	"io"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/iqbalrosiadi/wati_hackation_dikes/repo"
 	model "github.com/iqbalrosiadi/wati_hackation_dikes/repo"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	gorse "github.com/zhenghaoz/gorse/client"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+
+	pkgConfig "github.com/ClareAI/wati-go-common/pkg/config"
+	pkgMongo "github.com/ClareAI/wati-go-common/pkg/database/mongo"
+	pkgLogger "github.com/ClareAI/wati-go-common/pkg/logger"
 )
 
-var RANDOM_LABELS = []string{
-	"Nebula",
-	"Stardust",
-	"Stellar",
-	"Galactic",
-	"Interstellar",
-	"Celestial",
-	"Cosmic",
-	"Quantum",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Ink",
-	"Leap",
-	"Serenade",
-	"Kaleidoscope",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
-	"Symphony",
-	"Spectacle",
-	"Graffiti",
-	"Ink",
-	"Canvas",
-	"Collage",
-	"Nights",
+const (
+	BROADCAST_COLLECTION_NAME = "Broadcast"
+	TEMPLATE_COLLECTION_NAME  = "Template"
+)
+
+var (
+	templateRepo *repo.TemplateRepo
+	logger       zerolog.Logger
+	config       *viper.Viper
+	mongoManager *pkgMongo.MongoManager
+	db           *mongo.Database
+	gorseClient  *gorse.GorseClient
+)
+
+func init() {
+	config = pkgConfig.GetConfig()
+
+	pkgLogger.InitDefaultLogger()
+	logger = log.Logger
+
+	pkgMongo.NewMongoManager()
+	mongoManager = pkgMongo.GetMongoManager()
+	mongoConn := pkgMongo.Config{
+		Protocol: config.GetString("database.mongo.protocol"),
+		Host:     config.GetString("database.mongo.host"),
+		Port:     config.GetString("database.mongo.port"),
+		User:     config.GetString("database.mongo.user"),
+		Password: config.GetString("database.mongo.password"),
+	}
+	if err := mongoManager.NewMongoConnection(mongoConn); err != nil {
+		logger.Fatal().Err(err).Msg("failed to initialize database")
+	}
+	dbConn := mongoManager.GetConnection(config.GetString("database.mongo.host")).GetClient()
+	db = dbConn.Database(config.GetString("database.mongo.name"))
+
+	gorseClient = gorse.NewGorseClient(fmt.Sprintf("http://%s", net.JoinHostPort(config.GetString("recommender.host"), config.GetString("recommender.port"))), "")
+
 }
 
 func main() {
-	uri := "mongodb://localhost:27017/dikes_hackathon"
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-	if err != nil {
-		panic(err)
-	}
 	defer func() {
-		if err := client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
+		mongoManager.Shutdown()
 	}()
-	dbName := "dikes_hackathon"
-	broadcastCollName := "Broadcast"
-	templateCollName := "Template"
-	// compiledContactProfileCollName := "CompiledContactProfile"
-	broadcastColl := client.Database(dbName).Collection(broadcastCollName)
-	templateColl := client.Database(dbName).Collection(templateCollName)
-	// compiledContactProfileColl := client.Database(dbName).Collection(compiledContactProfileCollName)
 
-	broadcastRepo := repo.NewBroadcastRepo(broadcastColl)
-	templateRepo := repo.NewTemplateRepo(templateColl)
-	// compiledContactProfileRepo := repo.NewCompiledContactProfileRepo(compiledContactProfileColl)
+	templateRepo = repo.NewTemplateRepo(db.Collection(TEMPLATE_COLLECTION_NAME))
 
 	r := gin.Default()
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "DIKES Backend API Server",
+		})
+	})
+	// Template routes
+	r.POST("/api/v1/templates", CreateTemplate)
+	r.GET("/api/v1/templates", ListTemplate)
+	r.GET("/api/v1/templates/:id", GetTemplateById)
 
-	// Handle Create message template
-	r.POST("/api/v1/message-template", func(c *gin.Context) {
-		var messageTemplate model.Template
-		if err := c.ShouldBindJSON(&messageTemplate); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
-			return
-		}
+	// Recommend contacts
+	r.GET("/api/v1/recommend-contacts", RecommendContacts)
 
-		rs, err := templateRepo.Create(context.Background(), messageTemplate)
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		id, ok := rs.InsertedID.(primitive.ObjectID)
+	addr := net.JoinHostPort(config.GetString("server.http.host"), config.GetString("server.http.port"))
+	r.Run(addr)
+}
+
+func CreateTemplate(c *gin.Context) {
+	var messageTemplate model.Template
+	if err := c.ShouldBindJSON(&messageTemplate); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Insert the template to the database
+	var templateId string
+	if rs, err := templateRepo.Create(context.Background(), messageTemplate); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	} else {
+		objID, ok := rs.InsertedID.(primitive.ObjectID)
 		if !ok {
 			c.JSON(500, gin.H{"error": "Failed to get inserted ID"})
 			return
 		}
-		// Call to AI model to get template's labels
-		// Create user
-		client := gorse.NewGorseClient("http://127.0.0.1:8087", "")
-		if _, err := client.InsertUser(c.Request.Context(), gorse.User{
-			UserId: id.String(),
-		}); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-		}
-		// Create item with labels
-		labels := mockLabels()
-		itemId := fmt.Sprintf("template:%s", id.String())
-		if _, err := client.InsertItem(c.Request.Context(), gorse.Item{
-			ItemId:    itemId,
-			Labels:    labels,
-			Timestamp: time.Now().Format("2006-01-02 15:04:05"),
-		}); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-		}
+		templateId = objID.Hex()
+	}
+	messageTemplate.Id = templateId
 
-		c.JSON(200, gin.H{
-			"created": true,
-		})
+	err := createTemplateOnRecommender(c, messageTemplate)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"created":    true,
+		"templateId": templateId,
 	})
-
-	// Handle Get message templates
-	r.GET("/api/v1/message-templates", func(c *gin.Context) {
-		cursor, err := templateRepo.Find(context.Background(), bson.D{})
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		// Unpacks the cursor into a slice
-		var results []repo.Template
-		if err = cursor.All(context.TODO(), &results); err != nil {
-			panic(err)
-		}
-		c.JSON(200, results)
-	})
-
-	// Handle Get message template by id
-
-	// Handle Get broadcasts
-	r.GET("/api/v1/broadcasts", func(c *gin.Context) {
-		cursor, err := broadcastRepo.Find(context.Background(), bson.D{})
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		// Unpacks the cursor into a slice
-		var results []repo.Broadcast
-		if err = cursor.All(context.TODO(), &results); err != nil {
-			panic(err)
-		}
-		c.JSON(200, results)
-	})
-
-	// Handle Get broadcasts
-
-	// Handle Create broadcast
-	r.POST("/api/v1/broadcast", func(c *gin.Context) {
-		var broadcast model.Broadcast
-		if err := c.ShouldBindJSON(&broadcast); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
-			return
-		}
-
-		if err := broadcastRepo.Create(context.Background(), broadcast); err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, gin.H{
-			"created": true,
-		})
-	})
-
-	// Handle Get broadcast recommendation contacts
-	r.GET("/api/v1/broadcast/recommend-contacts", func(c *gin.Context) {
-		// Get Message Template from request
-		templateId := c.Query("templateId")
-
-		// Call to AI service // Create a client
-		client := gorse.NewGorseClient("http://127.0.0.1:8087", "")
-
-		// // Call to AI model to get template's labels
-		// // Create user
-		// if _, err := client.InsertUser(c.Request.Context(), gorse.User{
-		// 	UserId: templateId,
-		// }); err != nil {
-		// 	c.JSON(500, gin.H{"error": err.Error()})
-		// }
-		// // Create item with labels
-		// labels := mockLabels()
-		// itemId := fmt.Sprintf("template:%s:%d", templateId, time.Now().UnixMilli())
-		// if _, err := client.InsertItem(c.Request.Context(), gorse.Item{
-		// 	ItemId:    itemId,
-		// 	Labels:    labels,
-		// 	Timestamp: time.Now().Format("2006-01-02 15:04:05"),
-		// }); err != nil {
-		// 	c.JSON(500, gin.H{"error": err.Error()})
-		// }
-
-		// Insert feedback
-		// if _, err := client.InsertFeedback(c.Request.Context(), []gorse.Feedback{
-		// 	{FeedbackType: "star", UserId: templateId, ItemId: itemId, Timestamp: "2022-02-24"},
-		// }); err != nil {
-		// 	c.JSON(500, gin.H{"error": err.Error()})
-		// }
-
-		// Get recommendation.
-		rs, err := client.GetItemNeighbors(c.Request.Context(), "template:mock_template_999:1725604023024", templateId, 10, 0)
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-		}
-		c.JSON(200, rs)
-	})
-	r.Run("0.0.0.0:8099") // listen and serve on 0.0.0.0:8080
 }
 
-func mockLabels() []string {
-	rand.Shuffle(len(RANDOM_LABELS), func(i, j int) {
-		RANDOM_LABELS[i], RANDOM_LABELS[j] = RANDOM_LABELS[j], RANDOM_LABELS[i]
-	})
-	return RANDOM_LABELS[:5]
+func ListTemplate(c *gin.Context) {
+	cursor, err := templateRepo.Find(context.Background(), bson.D{})
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	// Unpacks the cursor into a slice
+	var results []repo.Template
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		panic(err)
+	}
+	c.JSON(200, results)
+}
+
+func GetTemplateById(c *gin.Context) {
+
+}
+
+func RecommendContacts(c *gin.Context) {
+	// Get Message Template from request
+	templateId := c.Query("templateId")
+
+	// Get template from recommender system
+	var defaultContactId string
+	template, err := gorseClient.GetUser(c, templateId)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+	}
+	if len(template.Subscribe) != 0 {
+		defaultContactId = template.Subscribe[0]
+	}
+
+	// Get recommended user for this template
+	rs, err := gorseClient.GetItemNeighbors(c.Request.Context(), defaultContactId, template.UserId, 10, 0)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+	}
+	c.JSON(200, rs)
+}
+
+func createTemplateOnRecommender(ctx context.Context, messageTemplate model.Template) error {
+	var (
+		httpClient = http.DefaultClient
+	)
+
+	// Generate labels for the template
+	labelerAddr := net.JoinHostPort(config.GetString("labeler.host"), config.GetString("labeler.port"))
+	jsonByte, err := json.Marshal(messageTemplate)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, "http://"+labelerAddr+"/api/v1/labeler/template", bytes.NewBuffer(jsonByte))
+	if err != nil {
+		return err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	labelResponse := struct {
+		Labels []string `json:"labels"`
+	}{}
+	if err := json.Unmarshal(respBodyBytes, &labelResponse); err != nil {
+		return err
+	}
+
+	// Insert mock contacts to the recommender
+	tempUserId := uuid.New().String()
+	if _, err := gorseClient.InsertItem(ctx, gorse.Item{
+		ItemId:    tempUserId,
+		Labels:    labelResponse.Labels,
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+	}); err != nil {
+		return err
+	}
+
+	// Insert the template to the recommender
+	// Since we recommend contacts based on the template, we need to insert the template to the recommender as User
+	if _, err := gorseClient.InsertUser(ctx, gorse.User{
+		UserId:    messageTemplate.Id,
+		Labels:    labelResponse.Labels,
+		Subscribe: []string{tempUserId},
+	}); err != nil {
+		return err
+	}
+
+	// Insert mock feedback (the SDK is broken, so we need to use the HTTP API)
+	recommenderUrl := fmt.Sprintf("http://%s", net.JoinHostPort(config.GetString("recommender.host"), config.GetString("recommender.port")))
+	feedbacks := []gorse.Feedback{
+		{FeedbackType: "star", UserId: messageTemplate.Id, ItemId: tempUserId, Timestamp: time.Now().Format("2006-01-02 15:04:05")},
+	}
+	jsonByte, err = json.Marshal(feedbacks)
+	if err != nil {
+		return err
+	}
+	feedbackRequest, err := http.NewRequest(http.MethodPost, recommenderUrl+"/api/feedback", bytes.NewBuffer(jsonByte))
+	if err != nil {
+		return err
+	}
+	feedbackRequest.Header.Set("Content-Type", "application/json")
+	_, err = httpClient.Do(feedbackRequest)
+	if err != nil {
+		return err
+	}
+	return nil
 }
