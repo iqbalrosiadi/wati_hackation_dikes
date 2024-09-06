@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/iqbalrosiadi/wati_hackation_dikes/repo"
@@ -85,6 +86,9 @@ func main() {
 			"message": "DIKES Backend API Server",
 		})
 	})
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"*"},
+	}))
 	// Template routes
 	r.POST("/api/v1/templates", CreateTemplate)
 	r.GET("/api/v1/templates", ListTemplate)
