@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kien-wati/go-openai"
+	"golang.org/x/exp/rand"
 )
 
 const (
@@ -85,6 +87,52 @@ func (s *TemplateLabeler) CreateLabelForTemplate(ctx context.Context, content st
 	}
 
 	return labels, nil
+}
+
+func (s *TemplateLabeler) CreateLabelForContact(ctx context.Context) ([]string, error) {
+	categoryLabels := []string{
+		"new product announcement",
+		"product updates",
+		"event invitation",
+		"survey",
+		"feedback request",
+		"informative content",
+		"motivational content",
+		"appreciation content",
+		"cross-sell content",
+		"call-to-action content",
+		"subscription content",
+		"promotional content",
+		"reward program",
+		"seasonal content",
+		"holiday content",
+		"other",
+	}
+
+	languageLabels := []string{"english", "arabic", "vietnamese", "chinese"}
+
+	countryLabels := []string{"usa", "india", "uk", "canada",
+		"australia", "singapore", "malaysia", "philippines",
+		"indonesia", "thailand", "vietnam", "china", "japan",
+		"south korea", "uae", "saudi arabia", "qatar", "kuwait", "bahrain",
+		"oman", "egypt", "nigeria", "south africa", "kenya", "ghana", "tanzania", "uganda", "zambia", "zimbabwe", "mozambique", "angola", "morocco", "algeria", "tunisia", "libya", "sudan", "ethiopia", "somalia", "yemen", "syria", "jordan", "lebanon"}
+
+	rand.Seed(uint64(time.Now().UnixNano()))
+
+	// Randomly pick 1 country
+	country := countryLabels[rand.Intn(len(countryLabels))]
+
+	// Randomly pick 1 language
+	language := languageLabels[rand.Intn(len(languageLabels))]
+
+	// Randomly pick 3 categories
+	rand.Shuffle(len(categoryLabels), func(i, j int) { categoryLabels[i], categoryLabels[j] = categoryLabels[j], categoryLabels[i] })
+	categories := categoryLabels[:3]
+
+	// Combine selected labels into one string array
+	finalLabels := []string{country, language}
+	finalLabels = append(finalLabels, categories...)
+	return finalLabels, nil
 }
 
 // func CreateTemplateLabelerModel(ctx context.Context) error {

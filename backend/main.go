@@ -105,6 +105,9 @@ func main() {
 	// Recommend contacts
 	r.GET("/api/v1/recommend-contacts", RecommendContacts)
 
+	// Contact routes
+	r.POST("/api/v1/contacts", CreateContact)
+
 	addr := net.JoinHostPort(config.GetString("server.http.host"), config.GetString("server.http.port"))
 	r.Run(addr)
 }
@@ -215,6 +218,74 @@ func RecommendContacts(c *gin.Context) {
 	c.JSON(200, recommendContacts)
 }
 
+func CreateContact(c *gin.Context) {
+	var (
+		httpClient = http.DefaultClient
+	)
+
+	var contact model.Contact
+	if err := c.ShouldBindJSON(&contact); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Insert the contact to the database
+	var contactId string
+	if rs, err := contactRepo.Create(context.Background(), contact); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	} else {
+		objID, ok := rs.InsertedID.(primitive.ObjectID)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Failed to get inserted ID"})
+			return
+		}
+		contactId = objID.Hex()
+	}
+	contact.Id = contactId
+
+	// Get labels for the contact
+	labelerAddr := net.JoinHostPort(config.GetString("labeler.host"), config.GetString("labeler.port"))
+	req, err := http.NewRequest(http.MethodGet, "http://"+labelerAddr+"/api/v1/labeler/contact", nil)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to get inserted ID"})
+		return
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	labelResponse := struct {
+		Labels []string `json:"labels"`
+	}{}
+	if err := json.Unmarshal(respBodyBytes, &labelResponse); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Println(labelResponse)
+
+	// Insert mock contacts to the recommender
+	if _, err := gorseClient.InsertItem(c, gorse.Item{
+		ItemId:    contactId,
+		Labels:    labelResponse.Labels,
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+	}); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"contactId": contactId,
+		"created":   true,
+	})
+}
+
 func createTemplateOnRecommender(ctx context.Context, messageTemplate model.Template) error {
 	var (
 		httpClient = http.DefaultClient
@@ -252,6 +323,7 @@ func createTemplateOnRecommender(ctx context.Context, messageTemplate model.Temp
 		ItemId:    tempUserId,
 		Labels:    labelResponse.Labels,
 		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+		IsHidden:  true,
 	}); err != nil {
 		return err
 	}

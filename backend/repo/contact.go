@@ -22,6 +22,10 @@ func NewContactRepo(col *mongo.Collection) *ContactRepo {
 	return &ContactRepo{col}
 }
 
+func (r *ContactRepo) Create(ctx context.Context, contact Contact) (*mongo.InsertOneResult, error) {
+	return r.col.InsertOne(ctx, contact)
+}
+
 func (r *ContactRepo) Find(ctx context.Context, filter interface{}) (*mongo.Cursor, error) {
 	return r.col.Find(ctx, filter)
 }
