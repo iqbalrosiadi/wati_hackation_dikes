@@ -37,10 +37,12 @@ type RecommendContact struct {
 const (
 	BROADCAST_COLLECTION_NAME = "Broadcast"
 	TEMPLATE_COLLECTION_NAME  = "Template"
+	CONTACT_COLLECTION_NAME   = "Contact"
 )
 
 var (
 	templateRepo *repo.TemplateRepo
+	contactRepo  *repo.ContactRepo
 	logger       zerolog.Logger
 	config       *viper.Viper
 	mongoManager *pkgMongo.MongoManager
@@ -79,6 +81,7 @@ func main() {
 	}()
 
 	templateRepo = repo.NewTemplateRepo(db.Collection(TEMPLATE_COLLECTION_NAME))
+	contactRepo = repo.NewContactRepo(db.Collection(CONTACT_COLLECTION_NAME))
 
 	r := gin.Default()
 	r.GET("/", func(c *gin.Context) {
@@ -89,7 +92,7 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},                            // Allows all origins
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"}, // HTTP methods
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -178,12 +181,23 @@ func RecommendContacts(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 	}
 	recommendContacts := []RecommendContact{}
-	for i, elt := range rs {
-		recommendContacts = append(recommendContacts, RecommendContact{
-			Phone:  elt.Id,
-			Name:   fmt.Sprintf("Contact %d", i),
-			ItemId: elt.Id,
-		})
+	for _, elt := range rs {
+		result, err := contactRepo.FindById(c.Request.Context(), elt.Id)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+		}
+		if result != nil {
+			contact := model.Contact{}
+			if err := result.Decode(&contact); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+			}
+
+			recommendContacts = append(recommendContacts, RecommendContact{
+				Phone:  contact.Phone,
+				Name:   contact.Name,
+				ItemId: contact.Id,
+			})
+		}
 	}
 	c.JSON(200, recommendContacts)
 }
