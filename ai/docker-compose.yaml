@@ -10,12 +10,16 @@ services:
       - 9001:9001
     volumes:
     - ./config:/app/config
+    networks:
+      - common-network
 
   redis:
     image: redis
     restart: unless-stopped
     ports:
       - 6379:6379
+    networks:
+      - common-network
 
   mysql:
     image: mysql/mysql-server
@@ -29,6 +33,8 @@ services:
       MYSQL_PASSWORD: gorse_pass
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - common-network
 
   worker:
     image: zhenghaoz/gorse-worker
@@ -45,6 +51,8 @@ services:
       - worker_data:/var/lib/gorse
     depends_on:
       - master
+    networks:
+      - common-network
 
   server:
     image: zhenghaoz/gorse-server
@@ -61,6 +69,8 @@ services:
       - server_data:/var/lib/gorse
     depends_on:
       - master
+    networks:
+      - common-network
 
   master:
     image: zhenghaoz/gorse-master
@@ -82,6 +92,8 @@ services:
     depends_on:
       - redis
       - mysql
+    networks:
+      - common-network
 
 volumes:
   worker_data:
@@ -89,3 +101,7 @@ volumes:
   master_data:
   gorse_log:
   mysql_data:
+
+networks:
+  common-network:
+    driver: bridge
