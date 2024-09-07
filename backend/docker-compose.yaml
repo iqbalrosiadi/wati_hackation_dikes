@@ -9,6 +9,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: password
     volumes:
       - mongo_data:/data/db
+    networks:
+      - ai_common-network
 
   app:
     build:
@@ -23,6 +25,12 @@ services:
       - mongo
     volumes:
     - ./config:/app/config
+    networks:
+      - ai_common-network
 
 volumes:
   mongo_data:
+
+networks:
+  ai_common-network:
+    external: true
