@@ -2,6 +2,7 @@ package labeler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/kien-wati/go-openai"
@@ -30,8 +31,19 @@ func NewTemplateLabeler() *TemplateLabeler {
 }
 
 func (s *TemplateLabeler) CreateLabelForTemplate(ctx context.Context, content string) ([]string, error) {
-	sampleContent := `Sapna, the global enterprise governance, risk & compliance market size is expected to reach USD 75 billion by 2028, according to Fortune. To enter this market, you can qualify as a US CPA, but that is an endlessly long route. You need not take that route to begin earning USD 10-20/hour. You can simply work as a remote paralegal or virtual assistant for a CPA, corporate secretary, law firm, or US companies and startups. Tap on "Tell Work" to know what kind of international work you can do as CA/CS/CMA/ even B.Com graduate. Even if you only charge USD 10 per hour (& I have deliberately chosen the rock bottom rate) & work for a maximum of 200 hours a month (or eight hours per day for 25 days), you make USD 2000. Eventually, the goal will be to start charging USD 50 per hour as you build up a phenomenal track record & client base, so you can get closer to an income of USD 10,000/month! Join our FREE bootcamp on 3rd August @ 7 PM IST to know how to get such work.`
-	sampleResponse := "english|bootcamp promotion|remote paralegal/virtual assistant|career development"
+	sampleContent := `Sapna, the global enterprise governance, risk & compliance market size is expected to reach USD 75 billion by 2028, according to Fortune. 
+		To enter this market, you can qualify as a US CPA, but that is an endlessly long route.
+		You need not take that route to begin earning USD 10-20/hour. You can simply work as a remote paralegal or virtual assistant for a CPA, corporate secretary, law firm, or US companies and startups. 
+		Tap on "Tell Work" to know what kind of international work you can do as CA/CS/CMA/ even B.Com graduate. 
+		Even if you only charge USD 10 per hour (& I have deliberately chosen the rock bottom rate) & work for a maximum of 200 hours a month (or eight hours per day for 25 days), you make USD 2000. 
+		Eventually, the goal will be to start charging USD 50 per hour as you build up a phenomenal track record & client base, so you can get closer to an income of USD 10,000/month! Join our FREE bootcamp on 3rd August @ 7 PM IST to know how to get such work.`
+
+	sampleResponse := "english|usa|event invitation|motivational content|call-to-action content"
+
+	marketingCategory := `new product announcement, product updates,
+	event invitation, survey, feedback request, informative content,
+	motivational content, appreciation content, cross-sell content, call-to-action content, subscription content,
+	promotional content, reward program, seasonal content, holiday content, other`
 
 	// Call OpenAI API to generate labels
 	ccReq := openai.ChatCompletionRequest{
@@ -39,7 +51,11 @@ func (s *TemplateLabeler) CreateLabelForTemplate(ctx context.Context, content st
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,
-				Content: "You are a template labeler. Please label the following template.",
+				Content: `You are a marketing template labeler. Please labels the following template with the following format: <template_language>|<predicted_country>|<marketing_category>.`,
+			},
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: fmt.Sprintf("You will use the following list for marketing category: %s", marketingCategory),
 			},
 			{
 				Role:    openai.ChatMessageRoleUser,
