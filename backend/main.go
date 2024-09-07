@@ -87,7 +87,12 @@ func main() {
 		})
 	})
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
+		AllowOrigins:     []string{"*"},                            // Allows all origins
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"}, // HTTP methods
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
 	}))
 	// Template routes
 	r.POST("/api/v1/templates", CreateTemplate)
