@@ -3,6 +3,8 @@ package repo
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -31,6 +33,14 @@ func (r *TemplateRepo) Find(ctx context.Context, filter interface{}) (*mongo.Cur
 }
 
 func (r *TemplateRepo) FindOne(ctx context.Context, id string) *mongo.SingleResult {
-	filter := map[string]string{"_id": id}
+	// Convert the string id to MongoDB ObjectID if necessary
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil
+	}
+
+	// Create a filter using BSON
+	filter := bson.M{"_id": objectID}
+
 	return r.col.FindOne(ctx, filter)
 }
