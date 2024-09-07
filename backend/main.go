@@ -141,21 +141,34 @@ func CreateTemplate(c *gin.Context) {
 }
 
 func ListTemplate(c *gin.Context) {
-	cursor, err := templateRepo.Find(context.Background(), bson.D{})
+	cursor, err := templateRepo.Find(c, bson.D{})
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 	// Unpacks the cursor into a slice
 	var results []repo.Template
-	if err = cursor.All(context.TODO(), &results); err != nil {
+	if err = cursor.All(c, &results); err != nil {
 		panic(err)
 	}
 	c.JSON(200, results)
 }
 
 func GetTemplateById(c *gin.Context) {
+	templateId := c.Param("id")
 
+	var template model.Template
+	err := templateRepo.FindOne(c, templateId).Decode(&template)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.JSON(404, gin.H{"error": "No document was found"})
+			return
+		}
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, template)
 }
 
 func RecommendContacts(c *gin.Context) {
